@@ -1,7 +1,7 @@
 import { SceneObject } from "./SceneObject.js";
 import { createRambiHead } from "./RambiHead.js";
 import { createRambiBody } from "./RambiBody.js";
-import { createEnvironment } from "./Environment.js";
+import { createEnvironment, BASE } from "./Environment.js";
 import { createCinema } from "./Cinema.js";
 import { createAnimation, rambiPose } from "./Animasi.js";
 
@@ -118,6 +118,13 @@ function main() {
     var endPose = rambiPose(15);                                  // tempat Rambi berhenti di akhir scene 2
     var endF = fwd(endPose);
     var endR = lft(endPose);
+    // kamera scene 5: heading "tertinggal" 0,4 detik supaya tidak ikut menyentak saat Rambi zigzag
+    var lagF = (T) => fwd({ h: rambiPose(T - 0.4).h });
+    var lagL = (T) => lft({ h: rambiPose(T - 0.4).h });
+    var chase5 = (d, hgt, side) => (T) => {
+        var p = rambiPose(T), f = lagF(T), l = lagL(T);
+        return [p.x - d * f[0] + side * l[0], hgt, p.z - d * f[1] + side * l[1]];
+    };
 
     var cinema = createCinema([
         // scene 1 (0-8): wide, orbit pelan mengelilingi pohon pisang (Rambi belum tampil)
@@ -150,6 +157,29 @@ function main() {
             tgt0: (T) => { var p = rambiPose(T); return [p.x, 1.0, p.z]; },
             tgt1: (T) => { var p = rambiPose(T); return [p.x, 1.0, p.z]; }
         },
+
+        // Scene 4 (30-40): Rambi + Donkey Kong berlari 2 putaran mengelilingi pohon pisang
+        // 4a (30-35): wide, orbit pelan dari atas supaya lintasan melingkar terlihat
+        { name: "s4-wide-orbit", dur: 5,
+          eye0: (T) => [BASE.x + 28 * Math.cos(1.0 + 0.3 * (T - 30)), 10, BASE.z + 28 * Math.sin(1.0 + 0.3 * (T - 30))],
+          eye1: (T) => [BASE.x + 28 * Math.cos(1.0 + 0.3 * (T - 30)), 10, BASE.z + 28 * Math.sin(1.0 + 0.3 * (T - 30))],
+          tgt0: (T) => { var p = rambiPose(T); return [p.x, 0.5, p.z]; },
+          tgt1: (T) => { var p = rambiPose(T); return [p.x, 0.5, p.z]; }, ease: false },
+
+        // 4b (35-40): chase cam dari belakang-luar tikungan
+        { name: "s4-chase", dur: 5,
+          eye0: (T) => { var p = rambiPose(T), f = fwd(p), l = lft(p); return [p.x - 7 * f[0] + 3 * l[0], 2.4, p.z - 7 * f[1] + 3 * l[1]]; },
+          eye1: (T) => { var p = rambiPose(T), f = fwd(p), l = lft(p); return [p.x - 7 * f[0] + 3 * l[0], 2.4, p.z - 7 * f[1] + 3 * l[1]]; },
+          tgt0: (T) => { var p = rambiPose(T), f = fwd(p); return [p.x + 4 * f[0], 0.8, p.z + 4 * f[1]]; },
+          tgt1: (T) => { var p = rambiPose(T), f = fwd(p); return [p.x + 4 * f[0], 0.8, p.z + 4 * f[1]]; }, ease: false },
+
+        // Scene 5 (40-50): Rambi kebut kanan-kiri hutan lalu belok ke pesisir.
+        // Kamera dari dekat (zoom in) pelan menjauh dan naik (zoom out).
+        { name: "s5-zoom-out-chase", dur: 10,
+          eye0: chase5(6, 2.2, 2.5),
+          eye1: chase5(20, 7.0, 6.0),
+          tgt0: (T) => { var p = rambiPose(T), f = lagF(T); return [p.x + 3 * f[0], 0.3, p.z + 3 * f[1]]; },
+          tgt1: (T) => { var p = rambiPose(T), f = lagF(T); return [p.x + 3 * f[0], 0.3, p.z + 3 * f[1]]; } },
     ]);
     var CINEMA = false, cineStart = 0, lastTime = 0;
 
