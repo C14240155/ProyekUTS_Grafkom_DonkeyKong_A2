@@ -1,5 +1,5 @@
 import { bezierPoint } from "./geometry.js";
-import { PATHS, BASE } from "./Environment.js";
+import { PATHS, BASE, SEA_Y } from "./Environment.js";
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const seg = (T, a, b) => clamp((T - a) / (b - a), 0, 1);
@@ -271,7 +271,7 @@ const route5 = makeRoute([
     [-31, 9], [-22, 22], [-12, 26],        // kanan (+z)
     [-12, 8], [-16, -12], [-14, -28],      // menyilang ke kiri (-z)
     [-8, -12], [-9, 8], [-12, 20],         // kembali ke kanan
-    [-5, 12], [0, 7], [5, 6]               // berbelok kencang ke pesisir
+    [-8, 12], [-4, 7], [0, 6]              // berbelok kencang ke pesisir
 ], 3);
 
 const S5_A = route5.len / (S5_TA * (S5_SPAN - S5_TA / 2));   // percepatan konstan (unit/detik^2)
@@ -348,7 +348,311 @@ function poseRambiS5(R, T) {
     LIBS.rotateArbitrary(M, [s.x, 0, s.z], [Math.sin(s.h), 0, Math.cos(s.h)], lean);
 }
 
+/* ================= SCENE 6 : Rambi mengerem mendadak ================= */
+export const SCENE6_START = 50;
+export const SCENE6_END = 58;
+const S6_SPAN = SCENE6_END - SCENE6_START;     // 8 detik
+
+const S6_BRAKE_D = 4.5;                        // jarak luncur saat mengerem (unit)
+const S6_TB = 2 * S6_BRAKE_D / S5_VPEAK;       // lama pengereman (deselerasi konstan, sekitar 0,35 dtk)
+const S6_E = s5State(SCENE5_END);              // posisi + heading akhir scene 5
+const S6_F = [Math.sin(S6_E.h), Math.cos(S6_E.h)];      // arah depan
+const S6_LEFT = [Math.cos(S6_E.h), -Math.sin(S6_E.h)];  // arah kiri (sumbu putar pantat naik)
+const S6_FRONT_Z = 1.4;       // jarak telapak depan dari origin badan (sepanjang depan)  <- sesuaikan dgn RambiBody
+const S6_FOOT_Y = -2.85;      // tinggi telapak di ruang MOVE (tanah -2.35 dikurangi offset root 0.5) <- sesuaikan
+const S6_PITCH = 0.5;         // pantat terangkat (rad)
+
+// keyframe scaling [waktu, Z(panjang), Y(tinggi), X(lebar)] : STRETCH lalu SQUASH lalu pulih
+const S6_SCALE = [
+    [0.00, 1.20, 0.93, 0.95],     // lanjutan dari scene 5
+    [0.25, 1.32, 0.86, 0.92],     // STRETCH: badan tertarik panjang saat kaki mengunci
+    [0.50, 0.80, 1.16, 1.10],     // SQUASH: menghantam, memendek dan menggembung
+    [0.85, 1.07, 0.96, 0.97],
+    [1.25, 0.97, 1.03, 1.02],
+    [1.80, 1.00, 1.00, 1.00]
+];
+function keyed(keys, t) {
+    if (t <= keys[0][0]) return keys[0].slice(1);
+    for (let i = 1; i < keys.length; i++) {
+        if (t <= keys[i][0]) {
+            const k = ease((t - keys[i - 1][0]) / (keys[i][0] - keys[i - 1][0]));
+            return keys[i].slice(1).map((v, j) => lerp(keys[i - 1][j + 1], v, k));
+        }
+    }
+    return keys[keys.length - 1].slice(1);
+}
+
+// TRANSLASI: kecepatan puncak -> 0 dalam S6_TB detik, lalu diam total
+function s6Slide(t) {
+    if (t >= S6_TB) return S6_BRAKE_D;
+    return S5_VPEAK * (t - t * t / (2 * S6_TB));
+}
+function s6State(T) {
+    const t = clamp(T - SCENE6_START, 0, S6_SPAN);
+    const d = s6Slide(t);
+    return { x: S6_E.x + S6_F[0] * d, z: S6_E.z + S6_F[1] * d, h: S6_E.h, t };
+}
+
+function poseRambiS6(R, T) {
+    const s = s6State(T), pr = R.parts, t = s.t;
+    const onset = ease(seg(t, 0, 0.12));
+    const b = onset * (1 - ease(seg(t, 1.8, 2.6)));            // 0..1: kaki depan menahan, lalu dilepas
+    const gw = 1 - ease(seg(t, 0, 0.15));                      // sisa galop memudar cepat
+    const ph = s5Phase(S5_SPAN) + 2 * Math.PI * 3.8 * t;
+    const pant = ease(seg(t, 2.0, 3.0)) * (1 - b);             // napas terengah setelah mendarat
+
+    // --- HIERARKI: kaki depan MENAHAN (lurus, terjulur ke depan), kaki belakang terangkat menjuntai ---
+    const gOff = { FL: 0, FR: 0.35, BL: 2.4, BR: 2.75 };
+    for (const n of ["FL", "FR", "BL", "BR"]) {
+        const q = ph + gOff[n];
+        const gal = 1.05 * Math.sin(q) * gw;
+        const kgal = 1.3 * Math.max(0, -Math.cos(q)) * gw;
+        if (n[0] === "F") {
+            rot(pr["leg" + n], gal - 0.75 * b);                // terjulur ke depan menahan badan
+            rot(pr["knee" + n], kgal + 0.1 * b);               // lutut hampir lurus (kaku menahan)
+        } else {
+            rot(pr["leg" + n], gal + 0.45 * b + 0.12 * b * Math.sin(2 * Math.PI * 3 * t + gOff[n]));
+            rot(pr["knee" + n], kgal + 0.8 * b);               // menekuk menjuntai saat pantat terangkat
+        }
+    }
+
+    // kepala MENUNDUK, rahang terbuka kaget, telinga tegak, ekor tersentak
+    rot(pr.head, 0.14 * Math.sin(ph + 1.2) * gw - 0.06 * gw + 0.55 * b + 0.05 * Math.sin(2 * Math.PI * 2.2 * t) * pant, 0, 0);
+    rot(pr.jawPivot, 0.14 * gw + 0.3 * b + 0.08 * pant * Math.abs(Math.sin(2 * Math.PI * 1.1 * t)), 0, 0);
+    const flap = 0.55 * gw - 0.25 * b;
+    rot(pr.earL, 0, 0, flap);
+    rot(pr.earR, 0, 0, -flap);
+    rot(pr.tailPivot, 0.15 + 0.4 * gw + 0.3 * b,
+        0.45 * b * Math.sin(2 * Math.PI * 3.5 * t) + 0.15 * pant * Math.sin(2 * Math.PI * 1.2 * t));
+
+    // --- ROOT: SCALING stretch -> squash -> yaw -> posisi -> ARBITRARY ROTATION (pantat naik) ---
+    const M = R.root.MOVE_MATRIX;
+    const [sz, sy, sx] = keyed(S6_SCALE, t);
+    LIBS.scaleZ(M, sz); LIBS.scaleY(M, sy); LIBS.scaleX(M, sx);
+    LIBS.rotateY(M, s.h);
+    LIBS.set_position(M, s.x, 0, s.z);
+
+    // pantat naik dengan sumbu = sumbu X lokal (kiri-kanan) yang lewat telapak depan
+    const rise = ease(seg(t, 0.05, 0.45)) * (1 - ease(seg(t, 1.0, 2.0)));
+    const settle = 0.05 * Math.sin(2 * Math.PI * 2.5 * (t - 2.0)) * (t > 2.0 ? 1 - ease(seg(t, 2.0, 3.2)) : 0);
+    LIBS.rotateArbitrary(
+        M,
+        [s.x + S6_F[0] * S6_FRONT_Z, S6_FOOT_Y, s.z + S6_F[1] * S6_FRONT_Z],
+        [S6_LEFT[0], 0, S6_LEFT[1]],
+        S6_PITCH * rise + settle
+    );
+}
+
+/* ---------- Titik acuan bersama (untuk kamera dan teman yang mengerjakan DK + Enguarde) ---------- */
+export const SCENE6_SPLASH = {
+    x: S6_E.x + S6_F[0] * 13,       // 13 unit di depan Rambi, di atas laut
+    y: SEA_Y,
+    z: S6_E.z + S6_F[1] * 13,
+    t: 53.4                         // detik tercebur (waktu global T)
+};
+
+/* ================= SCENE 9 : Rambi menunggu, kaget, lalu berjalan mendekati DK + Enguarde ================= */
+// Scene 7-8 (DK + Enguarde di laut) dikerjakan teman. SESUAIKAN SCENE9_START dengan total durasi scene 1-8.
+export const SCENE9_START = 78;                // 58 + scene 7 (10 dtk) + scene 8 (10 dtk)
+export const SCENE9_END = SCENE9_START + 8;
+const S9_SPAN = 8;
+
+// waktu lokal (detik sejak scene 9 mulai)
+const S9_SHOCK = 3.5;                          // Rambi melihat DK -> kaget (setelah masuk frame)
+const S9_TA0 = 3.7, S9_TA1 = 4.5;              // berputar ke arah jalan
+const S9_W0 = 3.9, S9_W1 = 7.0;                // berjalan
+const S9_TB0 = 6.4, S9_TB1 = 7.4;              // berputar menghadap DK + Enguarde
+
+const S9_P0 = s6State(SCENE6_END);                          // tempat Rambi menunggu (akhir scene 6)
+const S9_TOE = 1.3;                                         // jangkauan ujung kuku kaki depan dari origin badan (RambiBody)
+const S9_SHORE_X = 5.6;                                     // batas x ujung kuku: di atas ini tanah sudah menurun ke laut
+const S9_P1 = {                                             // berjalan menyusuri pantai, tetap di pasir
+    x: Math.min(S9_P0.x + 1.0, S9_SHORE_X - S9_TOE),
+    z: S9_P0.z + 5.5
+};
+const S9_L = Math.hypot(S9_P1.x - S9_P0.x, S9_P1.z - S9_P0.z);
+
+// TITIK ACUAN untuk teman: Enguarde membawa DK ke titik ini (di air dangkal dekat pantai)
+export const SCENE9_MEET = { x: S9_P1.x + 4.8, y: SEA_Y, z: S9_P1.z + 1.8, t: SCENE9_START + 2.0 };
+
+const S9_HS = S9_P0.h;
+const S9_HW = S9_HS + wrapPi(Math.atan2(S9_P1.x - S9_P0.x, S9_P1.z - S9_P0.z) - S9_HS);
+const S9_HF = S9_HW + wrapPi(Math.atan2(SCENE9_MEET.x - S9_P1.x, SCENE9_MEET.z - S9_P1.z) - S9_HW);
+
+// keyframe [waktu relatif terhadap S9_SHOCK, nilai]
+const S9_EYE = [[0, 1.0], [0.25, 1.7], [0.55, 1.45], [0.9, 1.6], [3.6, 1.55], [5.0, 1.15]];   // skala mata
+const S9_JAW = [[0, 0], [0.3, 0.8], [0.6, 0.65], [1.0, 0.72], [3.6, 0.7], [5.0, 0.12]];       // rahang (rad)
+const S9_PULSE = [[0, 0], [0.2, 1], [0.8, 0.5], [3.6, 0.4], [5.0, 0]];                         // sentakan kepala, telinga, ekor
+
+// TRANSLASI + ROTASI
+function s9State(T) {
+    const t = clamp(T - SCENE9_START, 0, S9_SPAN);
+    const f = ease(seg(t, S9_W0, S9_W1));
+    const a = ease(seg(t, S9_TA0, S9_TA1)), b = ease(seg(t, S9_TB0, S9_TB1));
+    return {
+        x: lerp(S9_P0.x, S9_P1.x, f),
+        z: lerp(S9_P0.z, S9_P1.z, f),
+        h: S9_HS + (S9_HW - S9_HS) * a + (S9_HF - S9_HW) * b,
+        odo: S9_L * f + TURN_STEP * (Math.abs(S9_HW - S9_HS) * a + Math.abs(S9_HF - S9_HW) * b),
+        t
+    };
+}
+
+function poseRambiS9(R, T) {
+    const s = s9State(T), pr = R.parts, t = s.t;
+    const rel = t - S9_SHOCK;
+
+    // langkah kaki: fase dari jarak tempuh + sudut putar (kaki ikut bergerak saat berputar di tempat)
+    const v = (s9State(T + 0.03).odo - s9State(T - 0.03).odo) / 0.06;
+    const ph = 2 * Math.PI * s.odo / STRIDE;
+    const mv = ease(seg(v, 0.3, 1.8));
+    const pulse = keyed(S9_PULSE, rel)[0];
+    const hop = Math.sin(Math.PI * seg(t, S9_SHOCK, S9_SHOCK + 0.5));    // loncatan kecil saat kaget
+
+    // --- HIERARKI: kaki -> lutut (trot saat berjalan, lutut menekuk saat loncat kaget) ---
+    const off = { FL: 0, BR: 0, FR: Math.PI, BL: Math.PI };
+    for (const n of ["FL", "FR", "BL", "BR"]) {
+        const q = ph + off[n];
+        rot(pr["leg" + n], 0.5 * Math.sin(q) * mv);
+        rot(pr["knee" + n], 0.54 * Math.max(0, -Math.cos(q)) * mv + 0.5 * hop);
+    }
+
+    // kepala tersentak ke atas lalu mengangguk pelan mengikuti langkah
+    rot(pr.head, 0.07 * Math.sin(2 * ph) * mv - 0.22 * pulse, 0, 0);
+
+    // RAHANG BAWAH terbuka ke bawah (+X = membuka), sedikit bergetar saat ternganga
+    const hold = ease(seg(rel, 0.3, 0.6)) * (1 - ease(seg(rel, 3.6, 5.0)));
+    rot(pr.jawPivot, keyed(S9_JAW, rel)[0] + 0.04 * Math.sin(2 * Math.PI * 7 * t) * hold, 0, 0);
+
+    // SCALING MATA membesar (anak head; kelopak ikut membesar, pupil dikecilkan supaya putih mata tampak lebar)
+    if (!R._eyes) R._eyes = ["eyeL", "eyeR"].map(n => { const e = pr.head.find(n); return { e, pupil: e && e.find("pupil") }; });
+    const es = keyed(S9_EYE, rel)[0];
+    const ps = 1 / (1 + 0.7 * (es - 1));
+    for (const { e, pupil } of R._eyes) {
+        if (!e) continue;
+        LIBS.scaleX(e.MOVE_MATRIX, es); LIBS.scaleY(e.MOVE_MATRIX, es); LIBS.scaleZ(e.MOVE_MATRIX, es);
+        if (pupil) { LIBS.scaleX(pupil.MOVE_MATRIX, ps); LIBS.scaleY(pupil.MOVE_MATRIX, ps); LIBS.scaleZ(pupil.MOVE_MATRIX, ps); }
+    }
+
+    // telinga mengembang saat kaget, ekor tegak lalu mengibas pelan
+    const flap = 0.15 * Math.sin(ph + 0.8) * mv + 0.35 * pulse;
+    rot(pr.earL, 0, 0, flap); rot(pr.earR, 0, 0, -flap);
+    rot(pr.tailPivot, 0.15 + 0.35 * pulse, 0.3 * Math.sin(ph * 0.5 + 1) * mv + 0.1 * (1 - mv) * Math.sin(1.3 * T));
+
+    // ROOT: yaw ke arah jalan/lawan bicara, posisi di tanah, naik-turun saat melangkah + loncat kaget
+    const M = R.root.MOVE_MATRIX;
+    LIBS.rotateY(M, s.h);
+    LIBS.set_position(M, s.x, 0.12 * mv * Math.abs(Math.sin(ph)) + 0.18 * hop, s.z);
+}
+
+/* ================= SCENE 10 : reuni, Rambi menari ================= */
+export const SCENE10_START = SCENE9_END;
+export const SCENE10_END = SCENE10_START + 10;
+const S10_SPAN = 10;
+const S10_BEAT = 0.8;                          // satu lompatan per ketukan (75 bpm)
+const S10_FOOT = 3.05;                         // jarak origin badan ke telapak (GROUND_Y di RambiBody)
+const S10_BASE = s9State(SCENE9_END);          // Rambi menari di tempat ia berhenti di scene 9
+
+// putaran di sumbu miring: lompatan ke-k, arah, kemiringan sumbu (rad), arah condong (0 = kiri, PI/2 = depan)
+const S10_SPINS = [
+    { k: 3,  dir:  1, tilt: 0.42, az: 0 },
+    { k: 6,  dir: -1, tilt: 0.42, az: Math.PI },
+    { k: 9,  dir:  1, tilt: 0.45, az: Math.PI / 2 },
+    { k: 11, dir: -1, tilt: 0.45, az: -Math.PI / 2 }
+];
+// keyframe squash & stretch per satu siklus lompatan: [u (0..1), skala Y]
+// u 0-0.18 jongkok, 0.18-0.82 di udara (stretch saat naik dan turun), 0.82-1 mendarat (squash)
+const S10_SY = [[0, 0.84], [0.10, 0.80], [0.18, 0.82], [0.35, 1.22], [0.50, 1.06],
+                [0.70, 1.12], [0.82, 1.0], [0.92, 0.78], [1.0, 0.84]];
+
+function s10Beat(t) {
+    const k = Math.floor(t / S10_BEAT), u = t / S10_BEAT - k;
+    const air = u > 0.18 && u < 0.82;
+    const w = air ? (u - 0.18) / 0.64 : 0;
+    const spin = S10_SPINS.find(s => s.k === k);
+    const H = 1.0 + 0.6 * ease(seg(t, 0, 5)) + (spin ? 0.8 : 0);       // makin semangat, lebih tinggi saat berputar
+    return {
+        k, u, spin,
+        jump: air ? H * 4 * w * (1 - w) : 0,                            // parabola lompatan
+        flight: air ? Math.sin(Math.PI * w) : 0                         // 0..1 selama di udara
+    };
+}
+
+function s10Eyes(R, es) {
+    const pr = R.parts;
+    if (!R._eyes) R._eyes = ["eyeL", "eyeR"].map(n => { const e = pr.head.find(n); return { e, pupil: e && e.find("pupil") }; });
+    const ps = 1 / (1 + 0.7 * (es - 1));
+    for (const { e, pupil } of R._eyes) {
+        if (!e) continue;
+        LIBS.scaleX(e.MOVE_MATRIX, es); LIBS.scaleY(e.MOVE_MATRIX, es); LIBS.scaleZ(e.MOVE_MATRIX, es);
+        if (pupil) { LIBS.scaleX(pupil.MOVE_MATRIX, ps); LIBS.scaleY(pupil.MOVE_MATRIX, ps); LIBS.scaleZ(pupil.MOVE_MATRIX, ps); }
+    }
+}
+
+function poseRambiS10(R, T) {
+    const t = clamp(T - SCENE10_START, 0, S10_SPAN), pr = R.parts, P = S10_BEAT;
+    const b = s10Beat(t);
+    const g = ease(seg(t, 0, 0.5));                                     // masuk halus dari pose akhir scene 9
+    const sy = lerp(1, keyed(S10_SY, b.u)[0], g);                       // SQUASH & STRETCH
+    const sxz = 1 / Math.sqrt(sy);                                      // volume tetap
+    const crouch = clamp((1 - sy) / 0.2, 0, 1);                         // 0..1 saat badan memipih
+    const par = (b.k % 2) ? 1 : -1;                                     // ganti-gantian kaki yang lebih semangat
+
+    // sisa ekspresi kaget scene 9 memudar
+    const r9 = S9_SPAN - S9_SHOCK, rx = 1 - ease(seg(t, 0, 0.9));
+    const eyeS = lerp(1, keyed(S9_EYE, r9)[0], rx);
+    const jaw0 = keyed(S9_JAW, r9)[0] * rx;
+    const pul0 = keyed(S9_PULSE, r9)[0] * rx;
+
+    // --- HIERARKI: kaki -> lutut (depan terangkat ke depan, belakang menjulur, lutut menekuk saat jongkok dan di udara) ---
+    const lead = { FL: 1 + 0.35 * par, BR: 1 + 0.35 * par, FR: 1 - 0.35 * par, BL: 1 - 0.35 * par };
+    for (const n of ["FL", "FR", "BL", "BR"]) {
+        const swing = n[0] === "F" ? -0.7 : 0.55;
+        rot(pr["leg" + n], swing * b.flight * lead[n]);
+        rot(pr["knee" + n], (1.0 * b.flight + 0.45 * crouch) * lead[n]);
+    }
+
+    // kepala: mendongak di udara, menunduk saat mendarat, menoleh dan miring mengikuti irama
+    const sway = Math.sin(2 * Math.PI * t / (2 * P));
+    rot(pr.head, -0.25 * b.flight + 0.3 * crouch - 0.22 * pul0, 0.22 * sway * g, 0.1 * Math.sin(2 * Math.PI * t / (2 * P) + 1) * g);
+    rot(pr.jawPivot, jaw0 + g * (0.1 + 0.18 * b.flight), 0, 0);        // tersenyum lebar
+    s10Eyes(R, eyeS);                                                   // mata kembali normal (dari kaget scene 9)
+
+    // telinga mengepak, ekor mengibas cepat
+    const flap = 0.4 * b.flight + 0.12 * Math.sin(2 * Math.PI * t / P) + 0.35 * pul0;
+    rot(pr.earL, 0, 0, flap); rot(pr.earR, 0, 0, -flap);
+    rot(pr.tailPivot, 0.25 + 0.25 * b.flight + 0.35 * pul0, 0.6 * Math.sin(2 * Math.PI * 3 * t) * g);
+
+    // --- ROOT: scaling -> yaw (bergoyang) -> posisi (LOMPAT DI TEMPAT) -> ARBITRARY ROTATION (putar sumbu miring) ---
+    const M = R.root.MOVE_MATRIX;
+    LIBS.scaleX(M, sxz); LIBS.scaleY(M, sy); LIBS.scaleZ(M, sxz);
+    const yaw = S10_BASE.h + g * 0.22 * sway;
+    LIBS.rotateY(M, yaw);
+    const y = b.jump + S10_FOOT * (sy - 1);                             // telapak tetap menapak saat squash/stretch
+    LIBS.set_position(M, S10_BASE.x, y, S10_BASE.z);
+
+    const sp = b.spin;
+    if (sp && b.u >= 0.19 && b.u <= 0.80) {
+        const a = sp.dir * 2 * Math.PI * ease(seg(b.u, 0.19, 0.80));    // satu putaran penuh di udara
+        const L = [Math.cos(yaw), -Math.sin(yaw)], F = [Math.sin(yaw), Math.cos(yaw)];
+        const side = [Math.cos(sp.az) * L[0] + Math.sin(sp.az) * F[0], Math.cos(sp.az) * L[1] + Math.sin(sp.az) * F[1]];
+        const axis = [Math.sin(sp.tilt) * side[0], Math.cos(sp.tilt), Math.sin(sp.tilt) * side[1]];   // sumbu MIRING
+        LIBS.rotateArbitrary(M, [S10_BASE.x, y, S10_BASE.z], axis, a);
+    }
+}
+
 export function rambiPose(T) {                                  // posisi dunia, untuk kamera tracking
+    if (T >= SCENE10_START) {
+        return { x: S10_BASE.x, y: 0.5, z: S10_BASE.z - 0.3, h: S10_BASE.h };
+    }
+    if (T >= SCENE9_START) {
+        const s = s9State(T);
+        return { x: s.x, y: 0.5, z: s.z - 0.3, h: s.h };
+    }
+    if (T >= SCENE6_START) {
+        const s = s6State(T);
+        return { x: s.x, y: 0.5, z: s.z - 0.3, h: s.h };
+    }
     if (T >= SCENE5_START) {
         const s = s5State(T);
         return { x: s.x, y: 0.5, z: s.z - 0.3, h: s.h };
@@ -382,6 +686,14 @@ const rot = (n, rx = 0, ry = 0, rz = 0) => {                    // R pada MOVE_M
 
 function poseRambi(R, T) {
     const P = pos(T), pr = R.parts;
+    // ================= SCENE 10 =================
+    if (T >= SCENE10_START) { poseRambiS10(R, T); return; }
+
+    // ================= SCENE 9 =================
+    if (T >= SCENE9_START) { poseRambiS9(R, T); return; }
+
+    // ================= SCENE 6 =================
+    if (T >= SCENE6_START) { poseRambiS6(R, T); return; }
 
     // ================= SCENE 5 =================
     if (T >= SCENE5_START) { poseRambiS5(R, T); return; }

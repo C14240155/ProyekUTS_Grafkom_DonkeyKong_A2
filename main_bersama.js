@@ -3,7 +3,7 @@ import { createRambiHead } from "./RambiHead.js";
 import { createRambiBody } from "./RambiBody.js";
 import { createEnvironment, BASE } from "./Environment.js";
 import { createCinema } from "./Cinema.js";
-import { createAnimation, rambiPose } from "./Animasi.js";
+import { createAnimation, rambiPose, SCENE6_SPLASH, SCENE9_START, SCENE9_END, SCENE9_MEET, SCENE10_START, SCENE10_END } from "./Animasi.js";
 
 function main() {
     /** @type {HTMLCanvasElement} */
@@ -126,6 +126,23 @@ function main() {
         return [p.x - d * f[0] + side * l[0], hgt, p.z - d * f[1] + side * l[1]];
     };
 
+    // ---- Scene 6: Rambi mengerem, lalu kamera ke laut ----
+    var r6 = rambiPose(53);                                       // tempat Rambi berhenti setelah mengerem
+    var s6Look = (T) => { var p = rambiPose(T); return [p.x + 2, 1.0, p.z]; };
+    var splash = [SCENE6_SPLASH.x, SCENE6_SPLASH.y + 0.8, SCENE6_SPLASH.z];   // titik DK tercebur
+
+    // ---- Scene 9 ----
+    var M9 = [SCENE9_MEET.x, SCENE9_MEET.y, SCENE9_MEET.z];       // titik Enguarde + DK tiba
+    var R9 = rambiPose(SCENE9_END);                                // tempat Rambi berhenti
+    // titik pandang: lebih condong ke Rambi (60%) supaya Rambi jadi fokus, DK + Enguarde tetap masuk frame
+    var reveal9 = (T) => { var p = rambiPose(T); return [p.x * 0.6 + M9[0] * 0.4, -0.8, p.z * 0.6 + M9[2] * 0.4]; };
+    var seaLook9 = [M9[0] + 2, -1.2, M9[2] + 3];                  // bidikan awal: sedikit menjauh dari Rambi
+
+        // ---- Scene 10: reuni ----
+    var C10 = [(R9.x + M9[0]) / 2, 0, (R9.z + M9[2]) / 2];        // pusat kelompok (Rambi + DK + Enguarde)
+    var camDir10 = [0.35, -0.94];                                  // arah dari pusat ke kamera: sisi laut
+    var eye10 = (d, h) => [C10[0] + camDir10[0] * d, h, C10[2] + camDir10[1] * d];
+
     var cinema = createCinema([
         // scene 1 (0-8): wide, orbit pelan mengelilingi pohon pisang (Rambi belum tampil)
         { name: "s1-wide-orbit", dur: 8,
@@ -180,6 +197,45 @@ function main() {
           eye1: chase5(20, 7.0, 6.0),
           tgt0: (T) => { var p = rambiPose(T), f = lagF(T); return [p.x + 3 * f[0], 0.3, p.z + 3 * f[1]]; },
           tgt1: (T) => { var p = rambiPose(T), f = lagF(T); return [p.x + 3 * f[0], 0.3, p.z + 3 * f[1]]; } },
+
+        // Scene 6a (50-53): Rambi mengerem mendadak (kamera lebih jauh dan sedikit lebih tinggi)
+        { name: "s6-rem-mendadak", dur: 3,
+          eye0: [r6.x - 7, 3.0, r6.z - 19],
+          eye1: [r6.x - 5, 2.8, r6.z - 18],
+          tgt0: s6Look, tgt1: s6Look },
+
+        // Scene 6b (53-58): bergeser ke laut dengan pandangan lebar
+        { name: "s6-laut-rescue", dur: 5,
+          eye0: [r6.x - 5, 2.8, r6.z - 18],
+          eye1: [r6.x + 3, 5.5, r6.z - 24],
+          tgt0: s6Look,
+          tgt1: splash },
+
+        // PLACEHOLDER scene 7-8 (58 sampai SCENE9_START). HAPUS dan ganti dengan shot teman Anda.
+        { name: "s7-8-placeholder", dur: SCENE9_START - 58,
+          eye0: [splash[0] - 14, 4.5, splash[2] - 24], eye1: [splash[0] - 14, 4.5, splash[2] - 24],
+          tgt0: splash, tgt1: splash, ease: false },
+
+        // Scene 9a (3 dtk): dari LAUT, Enguarde membawa DK ke pesisir. Rambi belum masuk frame.
+        { name: "s9-enguarde-bawa-dk", dur: 3,
+          eye0: [M9[0] + 12, 1.6, M9[2] - 12],
+          eye1: [M9[0] + 9, 1.4, M9[2] - 13],
+          tgt0: seaLook9, tgt1: seaLook9 },
+
+        // Scene 9b (5 dtk): kamera tetap di sisi laut, bergerak mendekat ke daratan.
+        // Rambi mulai terlihat di daratan, kaget, lalu berjalan mendekati DK + Enguarde.
+        { name: "s9-mendekat-ke-daratan", dur: 5,
+          eye0: [M9[0] + 9, 1.4, M9[2] - 13],
+          eye1: [R9.x + 7, 2.4, R9.z - 12],
+          tgt0: seaLook9,
+          tgt1: reveal9 },
+
+        // Scene 10 (10 dtk): tiga sahabat menari, kamera mulai dari sudut akhir scene 9 lalu pelan zoom out
+        { name: "s10-reuni-zoomout", dur: 10,
+          eye0: eye10(13.7, 2.4),
+          eye1: eye10(36, 9.0),
+          tgt0: [C10[0], -0.8, C10[2]],
+          tgt1: [C10[0], 0.6, C10[2]] },
     ]);
     var CINEMA = false, cineStart = 0, lastTime = 0;
 
@@ -248,7 +304,6 @@ function main() {
         var T = (time - cineStart) / 1000;            // detik sejak tombol C / R ditekan
 
         resetTree(rambi.root);                        // semua karakter kembali ke pose diam
-        // nanti: resetTree(ber.root); resetTree(nyum.root);
 
         LIBS.set_I4(scene.MOVE_MATRIX);
         if (CINEMA) {
