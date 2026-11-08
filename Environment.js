@@ -21,7 +21,7 @@ const HORIZON = [0.86, 0.93, 0.98];
 export const BASE = { x: -46, z: -4, ringR: 10.5 };     // markas Donkey Kong (area pohon pisang)
 const PATH_W = 1.7;                                      // setengah lebar jalan
 
-const PATHS = [
+export const PATHS = [
     [[-35.5,  -4], [-28, -12], [-18,   4], [ -4,  -6]],
     [[-46, -14.5], [-44, -28], [-24, -24], [ -4, -32]],
     [[-46,   6.5], [-40,  20], [-22,  12], [ -4,  24]],
