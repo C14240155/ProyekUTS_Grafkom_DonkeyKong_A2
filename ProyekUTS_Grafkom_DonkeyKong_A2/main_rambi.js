@@ -1,6 +1,6 @@
 import { SceneObject } from "./SceneObject.js";
-import { createRambiHead } from "./RambiHead.js";
-import { createRambiBody } from "./RambiBody.js";
+import { createRambiHead } from "../RambiHead.js";
+import { createRambiBody } from "../RambiBody.js";
 
 function main() {
     /** @type {HTMLCanvasElement} */

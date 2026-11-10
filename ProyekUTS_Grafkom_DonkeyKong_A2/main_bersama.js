@@ -1,6 +1,6 @@
 import { SceneObject } from "./SceneObject.js";
-import { createRambiHead } from "./RambiHead.js";
-import { createRambiBody } from "./RambiBody.js";
+import { createRambiHead } from "../RambiHead.js";
+import { createRambiBody } from "../RambiBody.js";
 import { createEnvironment, BASE } from "./Environment.js";
 import { createCinema } from "./Cinema.js";
 import { createAnimation, rambiPose, SCENE6_SPLASH, SCENE9_START, SCENE9_END, SCENE9_MEET, SCENE10_START, SCENE10_END } from "./Animasi.js";
