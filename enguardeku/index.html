@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Enguarde the Swordfish</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; font: 13px/1.45 system-ui, sans-serif; color: #e8f6ff; }
+    body { background: linear-gradient(#2a86b8 0%, #0f4f78 55%, #082c47 100%); }
+    #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+    #gl:active { cursor: grabbing; }
+    #panel {
+      position: fixed; top: 12px; left: 12px; width: 250px; padding: 12px 14px;
+      background: rgba(4, 30, 50, 0.72); border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px; backdrop-filter: blur(6px);
+    }
+    h1 { font-size: 15px; margin: 0 0 8px; }
+    .row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .row label { flex: 0 0 52px; }
+    .row input[type=range] { flex: 1; }
+    .row span { flex: 0 0 40px; text-align: right; font-variant-numeric: tabular-nums; }
+    .checks label { display: block; margin: 3px 0; }
+    button {
+      background: #1d7fb8; color: #fff; border: 0; border-radius: 6px;
+      padding: 5px 10px; font: inherit; cursor: pointer;
+    }
+    button:hover { background: #2795d4; }
+    details { margin-top: 8px; }
+    summary { cursor: pointer; opacity: 0.85; }
+    table { border-collapse: collapse; margin-top: 4px; font-size: 12px; }
+    td { padding: 1px 4px; vertical-align: top; }
+    td:first-child { opacity: 0.75; white-space: nowrap; }
+    .keys { opacity: 0.7; font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+
+  <div id="panel">
+    <h1>Enguarde the Swordfish</h1>
+    <div class="row">
+      <button id="play">Pause</button>
+      <button id="roll">Barrel roll</button>
+      <button id="reset">Camera</button>
+    </div>
+    <div class="row"><label for="speed">Speed</label><input id="speed" type="range" min="0" max="3" step="0.05" value="1" /><span id="speedVal">1.00×</span></div>
+    <div class="row"><label for="scale">Size</label><input id="scale" type="range" min="0.4" max="1.8" step="0.05" value="1" /><span id="scaleVal">1.00×</span></div>
+    <div class="checks">
+      <label><input id="swim" type="checkbox" /> Swim along path</label>
+      <label><input id="wire" type="checkbox" /> Wireframe</label>
+      <label><input id="axes" type="checkbox" /> Show rotation axes</label>
+      <label><input id="floor" type="checkbox" checked /> Sea floor</label>
+    </div>
+    <details>
+      <summary>Primitives used</summary>
+      <table>
+        <tr><td>Sphere</td><td>eyes, pupils</td></tr>
+        <tr><td>Ellipsoid</td><td>body, head, lower body</td></tr>
+        <tr><td>Elliptic parab.</td><td>snout / mouth, jaw</td></tr>
+        <tr><td>Hyperbolic parab.</td><td>dorsal &amp; lower fin</td></tr>
+        <tr><td>Flattened cone</td><td>sword, tail stalk</td></tr>
+        <tr><td>Bézier tube</td><td>mouth lines, gills</td></tr>
+        <tr><td>Bézier sweep</td><td>dorsal rays, side fins</td></tr>
+        <tr><td>B-spline cyl.</td><td>tail, lower fins</td></tr>
+      </table>
+    </details>
+    <div class="keys">Drag to orbit · wheel to zoom<br />Space pause · R roll · W wire · A axes · S swim</div>
+  </div>
+
+  <script src="js/mat4.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/enguarde.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
