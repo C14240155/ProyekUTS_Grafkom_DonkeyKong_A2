@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Rambi, DK &amp; Enguarde</title>
+    <style>
+        html, body { margin: 0; height: 100%; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #hud {
+            position: fixed; left: 12px; bottom: 12px; max-width: calc(100% - 24px);
+            padding: 8px 12px; border-radius: 8px;
+            background: rgba(10, 30, 45, 0.62); color: #f2f8fc;
+            font: 13px/1.55 system-ui, sans-serif; pointer-events: none; z-index: 10;
+        }
+        #hud .dim { opacity: 0.75; font-size: 12px; }
+        #hud kbd { font: 11px ui-monospace, monospace; padding: 0 4px; border: 1px solid rgba(255,255,255,0.35); border-radius: 3px; }
+    </style>
+
+    <!-- William (master): matrix library -->
+    <script src="../ProyekUTS_Grafkom_DonkeyKong_A2/libs.js"></script>
+
+    <!-- Ber: Donkey Kong (classic scripts, unchanged; main.js / scene.js not loaded) -->
+    <script src="../dk-grafkom.final/dk-grafkom/js/math.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/geometry.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/renderer.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/bodypart.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/dk/Torso.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/dk/Tie.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/dk/Head.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/dk/Arm.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/dk/Leg.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/dk/DonkeyKong.js"></script>
+    <script src="../dk-grafkom.final/dk-grafkom/js/animation.js"></script>
+
+    <!-- Enguarde (classic scripts, unchanged; main.js not loaded) -->
+    <script src="../enguardeku/js/mat4.js"></script>
+    <script src="../enguardeku/js/geometry.js"></script>
+    <script src="../enguardeku/js/scene.js"></script>
+    <script src="../enguardeku/js/enguarde.js"></script>
+
+    <!-- integration layer (must load before William's main so it can hook the loop) -->
+    <script type="module" src="js/integrasi.js"></script>
+
+    <!-- William's master program, unchanged -->
+    <script type="module" src="../ProyekUTS_Grafkom_DonkeyKong_A2/main_bersama.js"></script>
+</head>
+<body>
+    <canvas id="mycanvas"></canvas>
+</body>
+</html>
