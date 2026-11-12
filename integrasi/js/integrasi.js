@@ -130,16 +130,48 @@ SceneObject.prototype.render = function (PARENT_MATRIX) {
         S.camShot = null;
         if (cinema) {
             const cam = DEBUG_CAM || cameraOverride(T);
-            if (cam) {
-                S.GL.uniformMatrix4fv(S.uV, false, LIBS.lookAt(cam.eye, cam.target, [0, 1, 0]));
-                LIBS.set_position(S.sky.POSITION_MATRIX, cam.eye[0], cam.eye[1], cam.eye[2]);
+        if (T >= 58 && T < 78) {
+            console.log("CAMERA DEBUG:", {
+                time: T,
+                shot: cam ? cam.shot : "NULL",
+                eye: cam ? cam.eye : null,
+                target: cam ? cam.target : null
+            });
+        }
+        if (cam) {
+                const cameraMatrix = LIBS.lookAt(cam.eye, cam.target, [0, 1, 0]);
+
+                S.GL.uniformMatrix4fv(S.uV, false, cameraMatrix);
+
+                LIBS.set_position(
+                    S.sky.POSITION_MATRIX,
+                    cam.eye[0],
+                    cam.eye[1],
+                    cam.eye[2]
+                );
+
                 S.camShot = cam.shot;
+
+                console.log("VIEW MATRIX BEFORE RENDER:", {
+                    time: T,
+                    shot: cam.shot,
+                    matrix: Array.from(S.GL.getUniform(S.prog, S.uV))
+                });
             }
         }
     } catch (e) { fail(e); return originalRender.call(this, PARENT_MATRIX); }
 
     // (b) William's own render (Rambi, environment, our anchors + splash FX)
     originalRender.call(this, PARENT_MATRIX);
+
+    if (filmT() >= 58 && filmT() < 78) {
+    const V = S.GL.getUniform(S.prog, S.uV);
+
+    console.log("VIEW MATRIX AFTER RENDER:", {
+        time: filmT(),
+        matrix: Array.from(V)
+    });
+}
 
     // (c) DK + Enguarde with their own shaders, using William's projection + view
     try {

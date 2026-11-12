@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Donkey Kong 3D - Grafika Komputer</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #20242b; }
+    #gl { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+    #gl:active { cursor: grabbing; }
+    #panel, #info { display: none; }
+    #error:not([hidden]) { position: fixed; top: 12px; left: 12px; color: white; background: #702020; padding: 12px; }
+  </style>
+</head>
+<body>
+  <canvas id="gl" aria-label="Scene 3D Donkey Kong"></canvas>
+
+  <aside id="panel">
+    <h1>Donkey Kong 3D</h1>
+    <p class="sub">Tugas Grafika Komputer, WebGL murni</p>
+
+    <section>
+      <h2>Demo transformasi</h2>
+      <button data-demo="translate"><span>Translate</span><kbd>1</kbd></button>
+      <button data-demo="rotate"><span>Rotate</span><kbd>2</kbd></button>
+      <button data-demo="scale"><span>Scaling</span><kbd>3</kbd></button>
+      <button data-demo="axis"><span>Rotate sumbu bebas</span><kbd>4</kbd></button>
+      <button data-demo="hier"><span>Hierarchical</span><kbd>5</kbd></button>
+      <button data-demo="all" class="all"><span>Putar semua demo</span><kbd>0</kbd></button>
+    </section>
+
+    <section>
+      <h2>Tampilan</h2>
+      <label><input type="checkbox" id="chkCurves"> Kurva 3D dan titik kontrol</label>
+      <label><input type="checkbox" id="chkWire"> Wireframe</label>
+    </section>
+
+    <p class="hint">Seret mouse untuk memutar kamera, scroll untuk zoom, Esc untuk berhenti.</p>
+  </aside>
+
+  <div id="info" role="status"></div>
+  <div id="error" hidden></div>
+
+  <script src="js/math.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/bodypart.js"></script>
+  <script src="js/dk/Torso.js"></script>
+  <script src="js/dk/Tie.js"></script>
+  <script src="js/dk/Head.js"></script>
+  <script src="js/dk/Arm.js"></script>
+  <script src="js/dk/Leg.js"></script>
+  <script src="js/dk/DonkeyKong.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/animation.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

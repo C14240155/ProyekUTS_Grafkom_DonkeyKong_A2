@@ -1,5 +1,5 @@
 import { bezierPoint } from "./geometry.js";
-import { PATHS, BASE, SEA_Y } from "../Environment.js";
+import { PATHS, BASE, SEA_Y } from "./Environment.js";
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const seg = (T, a, b) => clamp((T - a) / (b - a), 0, 1);
